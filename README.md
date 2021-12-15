@@ -1,2 +1,2 @@
-# AI_Camelot_Game
-Implementation of Camelot boardgame with an AI opponent (2017) 
+# AI_Camelot_Game (2017)
+Implementation of Camelot boardgame with an AI opponent using MinMax and pruning
