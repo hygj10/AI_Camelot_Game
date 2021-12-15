@@ -1,0 +1,490 @@
+from tkinter import *
+import time
+import numpy as np
+
+
+class MiniCamelot(object):
+    """
+    A Mini Camelot game, in charge of storing the state of the board and checking which player wins.
+    """
+
+    #
+    # def __init__(self):
+    #     self.initial_m = [[-1] * 3 + [0] * 2 + [-1] * 3, [-1] * 2 + [0] * 4 + [-1] * 2, [-1] + [0] * 6 + [-1], [0] * 8,
+    #                 [0, 0, 1, 1, 1, 1, 0, 0],[0, 0, 0, 1, 1, 0, 0, 0], [0] * 8, [0] * 8, [0, 0, 0, 2, 2, 0, 0, 0],
+    #                 [0, 0, 2, 2, 2, 2, 0, 0],[0] * 8, [-1] + [0] * 6 + [-1], [-1] * 2 + [0] * 4 + [-1] * 2,
+    #                 [-1] * 3 + [0] * 2 + [-1] * 3]
+
+
+    def terminal_test(self, grid):
+        winner = None
+        num_1, num_2 = self.count(grid)
+        if num_1 == 1:
+            winner = 2
+        if num_2 == 1:
+            winner = 1
+        if grid[1][3:5] == [2, 2]:
+            winner = 2  # Computer
+        elif grid[-1][3:5] == [1, 1]:
+            winner = 1  # Player
+        elif num_1 == 0:
+            if num_2 > 1:
+                winner = 2  # Computer
+            else:
+                winner = 3  # Draw
+        elif num_2 == 0:
+            self.game_finish = True
+            if num_1 > 1:
+                winner = 1  # Player
+            else:
+                winner = 0  # Draw
+        return winner
+
+    def evaluation(self, state):
+        val = 0
+        for i in range(14):
+            for j in range(8):
+                if state[i][j] == 2:
+                    val += 150 - 13 * i
+                elif state[i][j] == 1:
+                    val -= i * 2
+        val += 100 * (self.count(state)[1]) - 100 * (self.count(state)[0])
+
+        if state[0][3] == 2 and state[0][4] == 2:
+            val = 1000
+
+        if state[13][3] == 1 and state[13][4] == 1:
+            val = -1000
+        return val
+
+    def count(self, game_board):
+        num_1 = 0
+        num_2 = 0
+        for i in game_board:
+            num_1 += i.num(1)
+            num_2 += i.num(2)
+        return num_1, num_2
+
+    def board_result(self, state, action, player):
+        # print(player)
+        # print(action)
+        opponent = 3 - player
+        (i, j) = action[0]
+        (ni, nj) = action[1]
+        nstate = [i[:] for i in state]
+
+
+        if nstate[int((i + ni) / 2)][int((j + nj) / 2)] == opponent:
+            nstate[int((i + ni) / 2)][int((j + nj) / 2)] = 0
+        nstate[i][j] = 0
+        nstate[ni][nj] = player
+        return nstate
+
+    def moves(self, map, player):
+        moves = []
+        opponent = 3 - player
+        nmap = np.array(map)
+        positions = np.asarray(np.where(nmap == player)).T
+        # print(positions)
+        eaten = False
+        for i in positions:
+            if i[0] == 0:
+                continue
+            x = i[0]
+            y = i[1]
+            # list possible capture
+            if x - 2 >= 0 and self.grid[x - 2][y] == 0 and self.grid[x - 1][y] == opponent:
+                moves.append(((x, y), (x - 2, y)))
+                eaten = True
+            if x + 2 < 14 and self.grid[x + 2][y] == 0 and self.grid[x + 1][y] == opponent:
+                moves.append(((x, y), (x + 2, y)))
+                eaten = True
+            if y - 2 >= 0 and self.grid[x][y - 2] == 0 and self.grid[x][y - 1] == opponent:
+                moves.append(((x, y), (x, y - 2)))
+                eaten = True
+            if y + 2 < 8 and self.grid[x][y + 2] == 0 and self.grid[x][y + 1] == opponent:
+                moves.append(((x, y), (x, y + 2)))
+                eaten = True
+            if x + 2 < 14 and y + 2 < 8 and self.grid[x + 2][y + 2] == 0 and self.grid[x + 1][y + 1] == opponent:
+                moves.append(((x, y), (x + 2, y + 2)))
+                print('reached x+1y+1')
+            if x + 2 < 14 and y - 2 >= 0 and self.grid[x + 2][y - 2] == 0 and self.grid[x + 1][y - 1] == opponent:
+                moves.append(((x, y), (x + 2, y - 2)))
+                print('reachedx+1y-1')
+            if x - 2 >= 0 and y - 2 >= 0 and self.grid[x - 2][y - 2] == 0 and self.grid[x - 1][y - 1] == opponent:
+                moves.append(((x, y), (x - 2, y - 2)))
+                print('reached x-1 y-1')
+            if x - 2 >= 0 and y + 2 < 8 and self.grid[x - 2][y + 2] == 0 and self.grid[x - 1][y + 1] == opponent:
+                moves.append(((x, y), (x - 2, y + 2)))
+                print('reached x-1 y+1')
+
+        if eaten == False:
+            for i in positions:
+                # print(i)
+                if i[0] == 0:
+                    continue
+                x, y = i
+                # list all possible plain moves:
+                if y - 1 >= 0 and self.grid[x][y - 1] == 0:
+                    moves.append(((x, y), (x, y - 1)))
+                if y + 1 < 8 and self.grid[x][y + 1] == 0:
+                    moves.append(((x, y), (x, y + 1)))
+                if x - 1 >= 0 and self.grid[x - 1][y] == 0:
+                    moves.append(((x, y), (x - 1, y)))
+                if x + 1 < 8 and self.grid[x + 1][y] == 0:
+                    moves.append(((x, y), (x + 1, y)))
+                    print(x, 'x', y, 'y')
+                if x + 1 < 8 and y + 1 < 8 and self.grid[x + 1][y + 1] == 0:
+                    moves.append(((x, y), (x + 1, y + 1)))
+                    print('reached x+1y+1')
+                if x + 1 < 8 and y - 1 >= 0 and self.grid[x + 1][y - 1] == 0:
+                    moves.append(((x, y), (x + 1, y - 1)))
+                    print('reachedx+1y-1')
+                if x - 1 >= 0 and y - 1 >= 0 and self.grid[x - 1][y - 1] == 0:
+                    moves.append(((x, y), (x - 1, y - 1)))
+                    print('reached x-1 y-1')
+                if x - 1 >= 0 and y + 1 < 8 and self.grid[x - 1][y + 1] == 0:
+                    moves.append(((x, y), (x - 1, y + 1)))
+                    print('reached x-1 y+1')
+
+                # list all possible catering moves
+                if x - 2 >= 0 and self.grid[x - 2][y] == 0 and self.grid[x - 1][y] == player:
+                    moves.append(((x, y), (x - 2, y)))
+                if x + 2 < 14 and self.grid[x + 2][y] == 0 and self.grid[x + 1][y] == player:
+                    moves.append(((x, y), (x + 2, y)))
+                if y - 2 >= 0 and self.grid[x][y - 2] == 0 and self.grid[x][y - 1] == player:
+                    moves.append(((x, y), (x, y - 2)))
+                if y + 2 < 8 and self.grid[x][y + 2] == 0 and self.grid[x][y + 1] == player:
+                    moves.append(((x, y), (x, y + 2)))
+                if x + 2 < 14 and y + 2 < 8 and self.grid[x + 2][y + 2] == 0 and self.grid[x + 1][y + 1] == player:
+                    moves.append(((x, y), (x + 2, y + 2)))
+                    print('reached x+1y+1')
+                if x + 2 < 14 and y - 2 >= 0 and self.grid[x + 2][y - 2] == 0 and self.grid[x + 1][y - 1] == player:
+                    moves.append(((x, y), (x + 2, y - 2)))
+                    print('reachedx+1y-1')
+                if x - 2 >= 0 and y - 2 >= 0 and self.grid[x - 2][y - 2] == 0 and self.grid[x - 1][y - 1] == player:
+                    moves.append(((x, y), (x - 2, y - 2)))
+                    print('reached x-1 y-1')
+                if x - 2 >= 0 and y + 2 < 8 and self.grid[x - 2][y + 2] == 0 and self.grid[x - 1][y + 1] == player:
+                    moves.append(((x, y), (x - 2, y + 2)))
+                    print('reached x-1 y+1')
+        return moves
+    def start(self):
+        self.game_finish = False
+        self.winner = None
+        self.grid = [[-1] * 3 + [0] * 2 + [-1] * 3, [-1] * 2 + [0] * 4 + [-1] * 2, [-1] + [0] * 6 + [-1], [0] * 8,
+                     [0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 0, 1, 1, 0, 0, 0], [0] * 8, [0] * 8, [0, 0, 0, 2, 2, 0, 0, 0],
+                     [0, 0, 2, 2, 2, 2, 0, 0], [0] * 8, [-1] + [0] * 6 + [-1], [-1] * 2 + [0] * 4 + [-1] * 2,
+                     [-1] * 3 + [0] * 2 + [-1] * 3]
+        print(self.grid)
+
+
+Border = 20
+Width = 200
+Height = 320
+
+
+class MiniCamelotBoarf(Frame):
+    Width = 200
+    Height = 320
+    Border = 20
+
+    def __init__(self, parent, game):
+        self.game = game
+        self.parent = parent
+        Frame.__init__(self, parent)
+
+        self.i, self.j = -1, -1
+
+        self.useri()
+
+    def useri(self):
+
+        self.parent.title("Mini Camelot")
+        self.pack(fill=BOTH, expand=1)
+        self.canvas = Canvas(self, width=self.Width, height=self.Height)
+        self.canvas.pack(fill=BOTH, side=TOP)
+        self.canvas.configure(background='black')
+
+        self.theboard()
+        self.gamemap()
+
+        self.canvas.bind("<Button-1>", self.box_clicked)
+        # self.canvas.bind("<Key>", self.__key_pressed)
+
+    def showwin(self, winner):
+        # create a oval (which will be a circle)
+        r_list = ["Player", "Computer", "Draw"]
+        winner = r_list[winner - 1]
+        print(winner, type(winner))
+        x0 = y0 = Border * 5 / 2
+        x1 = y1 = Border * 8
+        self.canvas.create_oval(x0, y0, x1, y1, tags="prevgrid", fill="blue", )
+        # create text
+        x = y = Border * 6
+        self.canvas.create_text(x, y, text=winner + " wins!", tags="prevgrid", fill="white", font=("Helvetica", 10))
+
+    def theboard(self):
+        """
+        Draw the grid based on 15*8 grid
+        every square Border*Border
+
+        """
+        Border = self.Border
+        for i in range(4):
+            x0 = (4 - i) * Border + Border
+            y0 = i * Border
+            x1 = 160 - (4 - i) * Border + Border
+            y1 = i * Border
+            self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+            for j in range(3 - i, 5 + i + 1):
+                x0 = j * Border + Border
+                y0 = (i + 1) * Border
+                x1 = j * Border + Border
+                y1 = 80
+                self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+        for i in range(4, 4 + 9):
+            x0 = 0 + Border
+            y0 = i * Border
+            x1 = 160 + Border
+            y1 = i * Border
+            self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+        for i in range(9):
+            x0 = i * Border + Border
+            y0 = 80
+            x1 = i * Border + Border
+            y1 = 80 + Border * 8
+            self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+        for i in range(3):
+            x0 = (i + 1) * Border + Border
+            y0 = (i + 13) * Border
+            x1 = 160 - (i + 1) * Border + Border
+            y1 = (i + 13) * Border
+            self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+            for j in range(7 - i, i, -1):
+                x0 = j * Border + Border
+                y0 = 80 + Border * 8
+                x1 = j * Border + Border
+                y1 = (i + 13) * Border
+                self.canvas.create_line(x0, y0, x1, y1, fill="white")
+
+    def gamemap(self):
+        self.canvas.delete("prevgrid")
+        for i in range(14):
+            for j in range(8):
+                cor = self.game.grid[i][j]
+                if cor == 1 or cor == 2:
+                    x = (j + 1) * Border
+                    y = (i + 1) * Border
+
+                    x0 = x + 5
+                    y0 = y + 5
+                    x1 = x + 15
+                    y1 = y + 15
+
+                    color = "black" if cor == 2 else "white"
+                    self.canvas.create_oval(x0, y0, x1, y1, outline="white", tag="prevgrid", fill=color, width=2)
+
+    def boxclick(self, i, j):
+        # print(i, j)
+        x = (j + 1) * Border
+        y = (i + 1) * Border
+
+        x0 = x + 5
+        y0 = y + 5
+        x1 = x + 15
+        y1 = y + 15
+
+        self.canvas.create_oval(x0, y0, x1, y1, outline="green", tag="prevgrid", fill="white", width=2)
+
+    def unselect(self, i, j):
+        # print(i, j)
+        x = (j + 1) * Border
+        y = (i + 1) * Border
+
+        x0 = x + 5
+        y0 = y + 5
+        x1 = x + 15
+        y1 = y + 15
+        self.canvas.create_oval(x0, y0, x1, y1, outline="black", tags="prevgrid", fill="white", width=2)
+
+    # checking if capture move is possible
+    def was_eaten(self):
+        if self.j + 2 < 8 and self.game.map[self.i][self.j + 2] == 0 and self.game.map[self.i][self.j + 1] == 2:
+            return True
+        elif self.j - 2 >= 0 and self.game.map[self.i][self.j - 2] == 0 and self.game.map[self.i][self.j - 1] == 2:
+            return True
+        elif self.i + 2 < 14 and self.game.map[self.i + 2][self.j] == 0 and self.game.map[self.i + 1][self.j] == 2:
+            return True
+        elif self.i - 2 >= 0 and self.game.map[self.i - 2][self.j] == 0 and self.game.map[self.i - 1][self.j] == 2:
+            return True
+        return False
+
+    def can_move(self, i, j):
+        # checking if the move is valid
+        if self.was_eaten():
+            print("capture possible")
+            if abs(self.i - i) + abs(self.j - j) == 2:
+                print("can capture")
+                return True
+        elif self.game.map[i][j] == 0:
+            if abs(self.i - i) == 1 and self.j - j == 0:
+                return True
+            elif self.i - i == 0 and abs(self.j - j) == 1:
+                return True
+            else:
+                middle_i = int((self.i + i) / 2)
+                middle_j = int((self.j + j) / 2)
+                if self.game.map[middle_i][middle_j] == 1:
+                    return True
+        return False
+
+    def alphabeta_cutoff_search(self, state, d=4, cutoff_test=None, evaluate=None):
+
+        player = 2
+
+        global dpth
+        global min_pru
+        global nodes
+        global max_pru
+        global passed
+        passed = time.time()
+        nodes = 0
+        dpth = 0
+        min_pru = 0
+        max_pru = 0
+
+        def max_value(state, alpha, beta, depth):
+            global nodes
+            global max_pru
+            global passed
+            cur_time = time.time()
+            used_time = cur_time - passed
+            # print(used_time)
+            # print(used_time > 10)
+            if cutoff_test(state, depth, used_time):
+                global dpth
+                dpth = depth
+                return evaluate(state)
+            val = -9999
+            for a in self.game.moves(state, 2):
+                nodes += 1
+                val = max(val, min_value(self.game.board_result(state, a, 2), alpha, beta, depth + 1))
+                if val >= beta:
+                    max_pru += 1
+                    return val
+                alpha = max(alpha, val)
+            return val
+
+        def min_value(state, alpha, beta, depth):
+            global nodes
+            global min_pru
+            global passed
+            current_time = time.time()
+            used_time = current_time - passed
+            # print(used_time)
+            if cutoff_test(state, depth, used_time):
+                global dpth
+                dpth = depth
+                return evaluate(state)
+            v = 9999
+            for a in self.game.moves(state, 1):
+                nodes += 1
+                # print(self.game.result(state, a, 2))
+                v = min(v, max_value(self.game.board_result(state, a, 1), alpha, beta, depth + 1))
+                # print(val)
+                if v <= alpha:
+                    min_pru += 1
+                    return v
+                beta = min(beta, v)
+                print(alpha, beta, 'ab')
+            return v
+
+        cutoff_test = (cutoff_test or
+                       (lambda state, depth, time: depth > d or
+                                                   game.terminal_test(state) or time > 2))
+        evaluate = evaluate or (lambda state: game.evaluation(state))
+        best_score = -9999
+        beta = 9999
+        best_action = None
+        state = state[::]
+        for a in self.game.moves(state, 2):
+            v = min_value(self.game.board_result(state, a, 2), best_score, beta, 1)
+            if v > best_score:
+                best_score = v
+                best_action = a
+        t2 = time.time()
+        print("nodes generated:", nodes)
+        print("max depth reached:", dpth)
+        print("times of pruning in MIN-VALUE:", min_pru)
+        print("times of pruning in MAX-VALUE:", max_pru)
+        print("best", best_action)
+        print("alphabeta used time", t2 - passed)
+
+        return best_action
+
+    def box_clicked(self, event):
+        if self.game.game_finish:
+            return
+
+        x, y = event.x, event.y
+
+        if (Border < x < Width - Border and Border < y < Height - Border):
+            self.canvas.focus_set()
+
+            # get row and col numbers from x,y coordinates
+            j = x // 20 - 1
+            i = y // 20 - 1
+
+            # if cell has was selected already - deselect
+            print(self.game.moves(self.game.grid, 1))
+
+            if self.i != -1 and self.j != -1:
+
+                if self.can_move(i, j):
+                    self.game.map[self.i][self.j] = 0
+                    self.game.map[i][j] = 1
+                    if self.game.map[int((self.i + i) / 2)][int((self.j + j) / 2)] == 2:
+                        self.game.map[int((self.i + i) / 2)][int((self.j + j) / 2)] = 0
+                    self.i, self.j = -1, -1
+                    self.gamemap()
+                    # check_win
+                    winner = self.game.end(self.game.map)
+                    if winner != None:
+                        self.game.game_finish = True
+                    print(self.game.game_finish)
+                    if self.game.game_finish:
+                        self.showwin(winner)
+                    else:
+                        # computer moves
+                        state = [i[:] for i in self.game.map]
+                        computer_action = self.alphabeta_cutoff_search(state)
+                        self.game.map = self.game.board_result(self.game.map, computer_action, 2)
+                        self.gamemap()
+                        winner = self.game.end(self.game.map)
+                        if winner != None:
+                            self.game.game_finish = True
+                        print(self.game.game_finish)
+
+            if (i, j) == (self.i, self.j):
+                self.i, self.j = -1, -1
+                self.unselect(i, j)
+
+
+            elif self.game.grid[i][j] == 1:
+                self.i, self.j = i, j
+                self.boxclick(i, j)
+
+
+if __name__ == "__main__":
+    game = MiniCamelot()
+    game.start()
+
+    root = Tk()
+    MiniCamelotBoarf(root, game)
+    root.mainloop()
